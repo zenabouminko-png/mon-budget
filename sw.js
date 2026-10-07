@@ -1,4 +1,4 @@
-const CACHE = 'mon-budget-v4';
+const CACHE = 'mon-budget-v4-1';
 
 const ASSETS = [
   './manifest.webmanifest',
@@ -31,8 +31,8 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const request = event.request;
 
-  // Pour index.html : Internet en priorité.
-  // Le cache sert uniquement si Internet est indisponible.
+  // Pour index.html :
+  // Internet en priorité, cache uniquement comme secours.
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
@@ -51,7 +51,8 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Pour les autres fichiers : cache puis réseau.
+  // Pour les autres fichiers :
+  // cache en priorité, puis Internet.
   event.respondWith(
     caches.match(request)
       .then(cached => cached || fetch(request))
