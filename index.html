@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<meta name="description" content="Application personnelle de gestion des dépenses">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<title>Mon Budget</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f4f6f8;color:#172033}
+.app{max-width:560px;margin:auto;min-height:100vh;background:#f4f6f8;padding-bottom:80px}
+header{background:#0f172a;color:white;padding:22px 20px 18px;border-radius:0 0 22px 22px}
+header h1{margin:0;font-size:25px}header p{margin:5px 0 0;opacity:.75}
+.month{display:flex;justify-content:space-between;align-items:center;margin-top:22px;font-weight:700}
+.card{background:white;margin:14px 16px;padding:18px;border-radius:18px;box-shadow:0 4px 16px #0000000b}
+.balance{font-size:30px;font-weight:800;margin:5px 0 14px}.muted{color:#697386;font-size:13px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}.stat{background:#f7f8fa;border-radius:14px;padding:12px}.stat b{display:block;font-size:18px;margin-top:4px}
+h2{font-size:17px;margin:0 0 13px}.row{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.progress{height:8px;background:#e8ebef;border-radius:10px;overflow:hidden}.progress span{display:block;height:100%;background:#334155}
+button{border:0;border-radius:12px;padding:12px 14px;font-weight:700;cursor:pointer}
+.primary{background:#0f172a;color:#fff;width:100%}
+input,select{width:100%;padding:13px;border:1px solid #d9dee6;border-radius:12px;background:white;font-size:16px}
+label{display:block;font-size:13px;font-weight:700;margin:10px 0 6px}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(560px,100%);background:white;border-top:1px solid #e3e6ea;display:grid;grid-template-columns:repeat(4,1fr);padding:8px 4px calc(8px + env(safe-area-inset-bottom));z-index:10}
+.nav button{background:transparent;color:#697386;font-size:12px;padding:7px}.nav button.active{color:#0f172a;background:#eef1f5}
+.view{display:none}.view.active{display:block}
+.tx{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #eef0f3}.tx:last-child{border-bottom:0}.tx b{font-size:14px}.expense{color:#b42318}.income{color:#067647}
+.cat{display:flex;align-items:center;gap:10px;margin:11px 0}.catname{flex:1}.pill{font-size:12px;background:#eef1f5;padding:5px 8px;border-radius:8px}
+.empty{text-align:center;color:#697386;padding:25px 0}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+<h1>Mon Budget</h1><p>Suivi personnel de tes finances</p>
+<div class="month"><span id="monthLabel"></span><button onclick="resetMonth()" style="background:#ffffff18;color:white">Ce mois</button></div>
+</header>
+
+<section id="home" class="view active">
+<div class="card"><div class="muted">Solde du mois</div><div class="balance" id="balance">0 FCFA</div>
+<div class="stats"><div class="stat"><span class="muted">Revenus</span><b id="income">0 FCFA</b></div><div class="stat"><span class="muted">Dépenses</span><b id="expense">0 FCFA</b></div></div></div>
+<div class="card"><div class="row"><h2>Dépenses par catégorie</h2><span class="muted" id="txCount"></span></div><div id="categories"></div></div>
+<div class="card"><h2>Opérations récentes</h2><div id="recent"></div></div>
+</section>
+
+<section id="add" class="view">
+<div class="card"><h2>Ajouter une opération</h2>
+<label>Type</label><select id="type"><option value="expense">Dépense</option><option value="income">Revenu</option></select>
+<label>Montant (FCFA)</label><input id="amount" type="number" inputmode="numeric" placeholder="50000">
+<label>Catégorie</label><select id="category">
+<option>Alimentation</option><option>Transport</option><option>Maison</option><option>Enfant</option><option>Factures</option><option>Achats</option><option>Santé</option><option>Famille</option><option>Travail</option><option>Dons</option><option>Autres</option>
+</select>
+<label>Libellé</label><input id="note" placeholder="Ex. Courses, salaire...">
+<div class="formgrid"><div><label>Paiement</label><select id="payment"><option>Espèces</option><option>Banque</option><option>Mobile Money</option><option>Carte</option></select></div><div><label>Date</label><input id="date" type="date"></div></div>
+<br><button class="primary" onclick="addTx()">Enregistrer</button></div>
+</section>
+
+<section id="history" class="view"><div class="card"><div class="row"><h2>Historique</h2><button onclick="clearAll()" style="background:#fee4e2;color:#b42318">Effacer</button></div><div id="historyList"></div></div></section>
+
+<section id="budgets" class="view"><div class="card"><h2>Budgets</h2><p class="muted">Fixe un budget mensuel par catégorie.</p><div id="budgetList"></div></div></section>
+</div>
+
+<nav class="nav">
+<button class="active" onclick="show('home',this)">⌂<br>Accueil</button>
+<button onclick="show('add',this)">＋<br>Ajouter</button>
+<button onclick="show('history',this)">☷<br>Historique</button>
+<button onclick="show('budgets',this)">▣<br>Budgets</button>
+</nav>
+
+<script>
+const KEY='monBudgetDataV2', BKEY='monBudgetBudgetsV1';
+const now=new Date(); document.getElementById('date').value=now.toISOString().slice(0,10);
+const cats=['Alimentation','Transport','Maison','Enfant','Factures','Achats','Santé','Famille','Travail','Dons','Autres'];
+const money=n=>new Intl.NumberFormat('fr-FR').format(Math.round(n))+' FCFA';
+const load=()=>JSON.parse(localStorage.getItem(KEY)||'[]');
+const save=x=>localStorage.setItem(KEY,JSON.stringify(x));
+const monthKey=d=>d.slice(0,7);
+const current=()=>now.toISOString().slice(0,7);
+function show(id,btn){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');render();}
+function addTx(){
+ let amount=Number(document.getElementById('amount').value); if(!amount||amount<=0)return alert('Entre un montant valide.');
+ let tx={id:Date.now(),type:document.getElementById('type').value,amount,category:document.getElementById('category').value,note:document.getElementById('note').value.trim()||'Opération',payment:document.getElementById('payment').value,date:document.getElementById('date').value};
+ let a=load();a.push(tx);save(a);document.getElementById('amount').value='';document.getElementById('note').value='';render();alert('Opération enregistrée ✓');
+}
+function render(){
+ const m=current(), a=load().filter(x=>monthKey(x.date)===m), inc=a.filter(x=>x.type==='income').reduce((s,x)=>s+x.amount,0), exp=a.filter(x=>x.type==='expense').reduce((s,x)=>s+x.amount,0);
+ document.getElementById('monthLabel').textContent=now.toLocaleDateString('fr-FR',{month:'long',year:'numeric'}).replace(/^./,c=>c.toUpperCase());
+ document.getElementById('balance').textContent=money(inc-exp);document.getElementById('income').textContent=money(inc);document.getElementById('expense').textContent=money(exp);document.getElementById('txCount').textContent=a.length+' opération'+(a.length>1?'s':'');
+ let by={};a.filter(x=>x.type==='expense').forEach(x=>by[x.category]=(by[x.category]||0)+x.amount);
+ document.getElementById('categories').innerHTML=Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="cat"><span class="catname">${k}</span><span class="pill">${money(v)}</span></div>`).join('')||'<div class="empty">Aucune dépense ce mois.</div>';
+ let rec=[...a].sort((x,y)=>y.id-x.id).slice(0,6);
+ document.getElementById('recent').innerHTML=rec.map(tx=>`<div class="tx"><div><b>${tx.note}</b><div class="muted">${tx.category} · ${tx.payment}</div></div><b class="${tx.type==='expense'?'expense':'income'}">${tx.type==='expense'?'-':'+'}${money(tx.amount)}</b></div>`).join('')||'<div class="empty">Aucune opération.</div>';
+ let all=[...load()].sort((x,y)=>y.id-x.id);
+ document.getElementById('historyList').innerHTML=all.map(tx=>`<div class="tx"><div><b>${tx.note}</b><div class="muted">${tx.date} · ${tx.category} · ${tx.payment}</div></div><div style="text-align:right"><b class="${tx.type==='expense'?'expense':'income'}">${tx.type==='expense'?'-':'+'}${money(tx.amount)}</b><br><button onclick="delTx(${tx.id})" style="padding:3px 6px;background:#fee4e2;color:#b42318;font-size:11px">Suppr.</button></div></div>`).join('')||'<div class="empty">Aucune opération.</div>';
+ let budgets=JSON.parse(localStorage.getItem(BKEY)||'{}');
+ document.getElementById('budgetList').innerHTML=cats.map(c=>{let spent=by[c]||0,b=budgets[c]||0,p=b?Math.min(100,spent/b*100):0;return `<div style="margin:14px 0"><div class="row"><b>${c}</b><span class="muted">${money(spent)} / ${b?money(b):'non défini'}</span></div><div class="progress"><span style="width:${p}%"></span></div><br><input type="number" inputmode="numeric" placeholder="Budget mensuel" value="${b||''}" onchange="setBudget('${c}',this.value)"></div>`}).join('');
+}
+function setBudget(c,v){let b=JSON.parse(localStorage.getItem(BKEY)||'{}');b[c]=Number(v)||0;localStorage.setItem(BKEY,JSON.stringify(b));render();}
+function delTx(id){save(load().filter(x=>x.id!==id));render();}
+function clearAll(){if(confirm('Effacer toutes les opérations ?')){localStorage.removeItem(KEY);render();}}
+function resetMonth(){document.getElementById('date').value=new Date().toISOString().slice(0,10);render();}
+render();
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body></html>
