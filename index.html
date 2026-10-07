@@ -21,6 +21,8 @@ h2{font-size:17px;margin:0 0 13px}.row{display:flex;justify-content:space-betwee
 .progress{height:8px;background:#e8ebef;border-radius:10px;overflow:hidden}.progress span{display:block;height:100%;background:#334155}
 button{border:0;border-radius:12px;padding:12px 14px;font-weight:700;cursor:pointer}
 .primary{background:#0f172a;color:#fff;width:100%}
+.secondary{background:#eef1f5;color:#172033;width:100%}
+.danger{background:#fee4e2;color:#b42318}
 input,select{width:100%;padding:13px;border:1px solid #d9dee6;border-radius:12px;background:white;font-size:16px}
 label{display:block;font-size:13px;font-weight:700;margin:10px 0 6px}
 .formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -30,6 +32,9 @@ label{display:block;font-size:13px;font-weight:700;margin:10px 0 6px}
 .tx{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #eef0f3}.tx:last-child{border-bottom:0}.tx b{font-size:14px}.expense{color:#b42318}.income{color:#067647}
 .cat{display:flex;align-items:center;gap:10px;margin:11px 0}.catname{flex:1}.pill{font-size:12px;background:#eef1f5;padding:5px 8px;border-radius:8px}
 .empty{text-align:center;color:#697386;padding:25px 0}
+.backupButtons{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.backupButtons button{width:100%}
+.smallNote{font-size:12px;color:#697386;line-height:1.45;margin:10px 0 0}
 </style>
 </head>
 <body>
@@ -44,6 +49,17 @@ label{display:block;font-size:13px;font-weight:700;margin:10px 0 6px}
 <div class="stats"><div class="stat"><span class="muted">Revenus</span><b id="income">0 FCFA</b></div><div class="stat"><span class="muted">Dépenses</span><b id="expense">0 FCFA</b></div></div></div>
 <div class="card"><div class="row"><h2>Dépenses par catégorie</h2><span class="muted" id="txCount"></span></div><div id="categories"></div></div>
 <div class="card"><h2>Opérations récentes</h2><div id="recent"></div></div>
+<div class="card">
+<h2>💾 Sauvegarde</h2>
+<p class="muted">Garde une copie de tes données sur ton téléphone ou dans Google Drive.</p>
+<div class="backupButtons">
+<button class="primary" onclick="exportBackup()">📤 Sauvegarder</button>
+<button class="secondary" onclick="document.getElementById('backupFile').click()">📥 Restaurer</button>
+</div>
+<input id="backupFile" type="file" accept=".json,application/json" style="display:none" onchange="importBackup(event)">
+<button class="secondary" onclick="exportCSV()" style="margin-top:10px">📊 Exporter en CSV</button>
+<p class="smallNote">La sauvegarde contient tes opérations et tes budgets. Fais-en une copie régulièrement.</p>
+</div>
 </section>
 
 <section id="add" class="view">
@@ -79,29 +95,209 @@ const load=()=>JSON.parse(localStorage.getItem(KEY)||'[]');
 const save=x=>localStorage.setItem(KEY,JSON.stringify(x));
 const monthKey=d=>d.slice(0,7);
 const current=()=>now.toISOString().slice(0,7);
-function show(id,btn){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');render();}
-function addTx(){
- let amount=Number(document.getElementById('amount').value); if(!amount||amount<=0)return alert('Entre un montant valide.');
- let tx={id:Date.now(),type:document.getElementById('type').value,amount,category:document.getElementById('category').value,note:document.getElementById('note').value.trim()||'Opération',payment:document.getElementById('payment').value,date:document.getElementById('date').value};
- let a=load();a.push(tx);save(a);document.getElementById('amount').value='';document.getElementById('note').value='';render();alert('Opération enregistrée ✓');
+
+function show(id,btn){
+ document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+ document.getElementById(id).classList.add('active');
+ document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+ btn.classList.add('active');
+ render();
 }
+
+function addTx(){
+ let amount=Number(document.getElementById('amount').value);
+ if(!amount||amount<=0)return alert('Entre un montant valide.');
+ let tx={
+  id:Date.now(),
+  type:document.getElementById('type').value,
+  amount,
+  category:document.getElementById('category').value,
+  note:document.getElementById('note').value.trim()||'Opération',
+  payment:document.getElementById('payment').value,
+  date:document.getElementById('date').value
+ };
+ let a=load();a.push(tx);save(a);
+ document.getElementById('amount').value='';
+ document.getElementById('note').value='';
+ render();
+ alert('Opération enregistrée ✓');
+}
+
 function render(){
- const m=current(), a=load().filter(x=>monthKey(x.date)===m), inc=a.filter(x=>x.type==='income').reduce((s,x)=>s+x.amount,0), exp=a.filter(x=>x.type==='expense').reduce((s,x)=>s+x.amount,0);
+ const m=current(), a=load().filter(x=>monthKey(x.date)===m),
+ inc=a.filter(x=>x.type==='income').reduce((s,x)=>s+x.amount,0),
+ exp=a.filter(x=>x.type==='expense').reduce((s,x)=>s+x.amount,0);
+
  document.getElementById('monthLabel').textContent=now.toLocaleDateString('fr-FR',{month:'long',year:'numeric'}).replace(/^./,c=>c.toUpperCase());
- document.getElementById('balance').textContent=money(inc-exp);document.getElementById('income').textContent=money(inc);document.getElementById('expense').textContent=money(exp);document.getElementById('txCount').textContent=a.length+' opération'+(a.length>1?'s':'');
- let by={};a.filter(x=>x.type==='expense').forEach(x=>by[x.category]=(by[x.category]||0)+x.amount);
+ document.getElementById('balance').textContent=money(inc-exp);
+ document.getElementById('income').textContent=money(inc);
+ document.getElementById('expense').textContent=money(exp);
+ document.getElementById('txCount').textContent=a.length+' opération'+(a.length>1?'s':'');
+
+ let by={};
+ a.filter(x=>x.type==='expense').forEach(x=>by[x.category]=(by[x.category]||0)+x.amount);
  document.getElementById('categories').innerHTML=Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="cat"><span class="catname">${k}</span><span class="pill">${money(v)}</span></div>`).join('')||'<div class="empty">Aucune dépense ce mois.</div>';
+
  let rec=[...a].sort((x,y)=>y.id-x.id).slice(0,6);
  document.getElementById('recent').innerHTML=rec.map(tx=>`<div class="tx"><div><b>${tx.note}</b><div class="muted">${tx.category} · ${tx.payment}</div></div><b class="${tx.type==='expense'?'expense':'income'}">${tx.type==='expense'?'-':'+'}${money(tx.amount)}</b></div>`).join('')||'<div class="empty">Aucune opération.</div>';
+
  let all=[...load()].sort((x,y)=>y.id-x.id);
  document.getElementById('historyList').innerHTML=all.map(tx=>`<div class="tx"><div><b>${tx.note}</b><div class="muted">${tx.date} · ${tx.category} · ${tx.payment}</div></div><div style="text-align:right"><b class="${tx.type==='expense'?'expense':'income'}">${tx.type==='expense'?'-':'+'}${money(tx.amount)}</b><br><button onclick="delTx(${tx.id})" style="padding:3px 6px;background:#fee4e2;color:#b42318;font-size:11px">Suppr.</button></div></div>`).join('')||'<div class="empty">Aucune opération.</div>';
+
  let budgets=JSON.parse(localStorage.getItem(BKEY)||'{}');
- document.getElementById('budgetList').innerHTML=cats.map(c=>{let spent=by[c]||0,b=budgets[c]||0,p=b?Math.min(100,spent/b*100):0;return `<div style="margin:14px 0"><div class="row"><b>${c}</b><span class="muted">${money(spent)} / ${b?money(b):'non défini'}</span></div><div class="progress"><span style="width:${p}%"></span></div><br><input type="number" inputmode="numeric" placeholder="Budget mensuel" value="${b||''}" onchange="setBudget('${c}',this.value)"></div>`}).join('');
+ document.getElementById('budgetList').innerHTML=cats.map(c=>{
+  let spent=by[c]||0,b=budgets[c]||0,p=b?Math.min(100,spent/b*100):0;
+  return `<div style="margin:14px 0"><div class="row"><b>${c}</b><span class="muted">${money(spent)} / ${b?money(b):'non défini'}</span></div><div class="progress"><span style="width:${p}%"></span></div><br><input type="number" inputmode="numeric" placeholder="Budget mensuel" value="${b||''}" onchange="setBudget('${c}',this.value)"></div>`
+ }).join('');
 }
-function setBudget(c,v){let b=JSON.parse(localStorage.getItem(BKEY)||'{}');b[c]=Number(v)||0;localStorage.setItem(BKEY,JSON.stringify(b));render();}
-function delTx(id){save(load().filter(x=>x.id!==id));render();}
-function clearAll(){if(confirm('Effacer toutes les opérations ?')){localStorage.removeItem(KEY);render();}}
-function resetMonth(){document.getElementById('date').value=new Date().toISOString().slice(0,10);render();}
+
+function setBudget(c,v){
+ let b=JSON.parse(localStorage.getItem(BKEY)||'{}');
+ b[c]=Number(v)||0;
+ localStorage.setItem(BKEY,JSON.stringify(b));
+ render();
+}
+
+function delTx(id){
+ save(load().filter(x=>x.id!==id));
+ render();
+}
+
+function clearAll(){
+ if(confirm('Effacer toutes les opérations ?')){
+  localStorage.removeItem(KEY);
+  render();
+ }
+}
+
+/* =========================
+   SAUVEGARDE
+   ========================= */
+
+function exportBackup(){
+ try{
+  const backup={
+   app:'Mon Budget',
+   version:2,
+   exportedAt:new Date().toISOString(),
+   transactions:load(),
+   budgets:JSON.parse(localStorage.getItem(BKEY)||'{}')
+  };
+  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const date=new Date().toISOString().slice(0,10);
+  a.href=url;
+  a.download='Mon_Budget_Sauvegarde_'+date+'.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  alert('Sauvegarde créée ✓\\n\\nConserve le fichier .json dans un endroit sûr.');
+ }catch(e){
+  alert('Impossible de créer la sauvegarde.');
+ }
+}
+
+function importBackup(event){
+ const file=event.target.files[0];
+ if(!file)return;
+
+ const reader=new FileReader();
+
+ reader.onload=function(){
+  try{
+   const backup=JSON.parse(reader.result);
+
+   if(!backup || !Array.isArray(backup.transactions)){
+    throw new Error('Format invalide');
+   }
+
+   const valid=backup.transactions.every(tx =>
+    tx &&
+    typeof tx.id==='number' &&
+    (tx.type==='expense'||tx.type==='income') &&
+    typeof tx.amount==='number' &&
+    tx.amount>0 &&
+    typeof tx.category==='string' &&
+    typeof tx.note==='string' &&
+    typeof tx.payment==='string' &&
+    typeof tx.date==='string'
+   );
+
+   if(!valid)throw new Error('Données invalides');
+
+   const count=backup.transactions.length;
+
+   if(!confirm('Restaurer '+count+' opération'+(count>1?'s':'')+' ?\\n\\nLes opérations actuellement présentes seront remplacées par celles de la sauvegarde.'))return;
+
+   save(backup.transactions);
+
+   if(backup.budgets && typeof backup.budgets==='object'){
+    localStorage.setItem(BKEY,JSON.stringify(backup.budgets));
+   }else{
+    localStorage.removeItem(BKEY);
+   }
+
+   render();
+   alert('Restauration réussie ✓\\n\\n'+count+' opération'+(count>1?'s ont':' a')+' été restaurée'+(count>1?'s':'e')+'.');
+  }catch(e){
+   alert('Cette sauvegarde est invalide ou incompatible.');
+  }finally{
+   event.target.value='';
+  }
+ };
+
+ reader.readAsText(file);
+}
+
+function exportCSV(){
+ try{
+  const data=load();
+  if(!data.length){
+   alert('Aucune opération à exporter.');
+   return;
+  }
+
+  const rows=[
+   ['Date','Type','Montant','Catégorie','Libellé','Paiement'],
+   ...data.map(tx=>[
+    tx.date,
+    tx.type==='expense'?'Dépense':'Revenu',
+    tx.amount,
+    tx.category,
+    tx.note,
+    tx.payment
+   ])
+  ];
+
+  const csv=rows.map(row=>row.map(v=>{
+   const s=String(v??'').replace(/"/g,'""');
+   return '"'+s+'"';
+  }).join(';')).join('\\r\\n');
+
+  const blob=new Blob(['\\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const date=new Date().toISOString().slice(0,10);
+  a.href=url;
+  a.download='Mon_Budget_Operations_'+date+'.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+
+  alert('Export CSV créé ✓');
+ }catch(e){
+  alert('Impossible de créer le fichier CSV.');
+ }
+}
+
+resetMonth=function(){
+ document.getElementById('date').value=new Date().toISOString().slice(0,10);
+ render();
+};
+
 render();
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
