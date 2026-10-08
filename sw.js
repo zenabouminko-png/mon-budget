@@ -2,8 +2,8 @@ const CACHE = 'mon-budget-v4-2';
 
 const ASSETS = [
   './manifest.webmanifest',
-  './icôn-192.png',
-  './icôn-512.png'
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 self.addEventListener('install', event => {
